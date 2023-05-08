@@ -1,4 +1,5 @@
 import time
+import re
 
 GRID_SIZE = 12
 
@@ -11,41 +12,80 @@ def read_route_file(filename):
     return num_instructions, instructions
 
 
-def follow_instructions(num_instructions, instructions):
-    x, y = 6, 6
+def follow_instructions(num_instructions, instructions, x=6, y=6):
     coords = [(x, y)]
 
     for i in range(num_instructions):
         direction = instructions[i]
         if direction == 'N':
             y += 1
+            symbol = '↑'
         elif direction == 'S':
             y -= 1
+            symbol = '↓'
         elif direction == 'E':
             x += 1
+            symbol = '→'
         elif direction == 'W':
             x -= 1
+            symbol = '←'
+        elif direction == 'NE':
+            x += 1
+            y += 1
+            symbol = '↗'
+        elif direction == 'NW':
+            x -= 1
+            y += 1
+            symbol = '↖'
+        elif direction == 'SE':
+            x += 1
+            y -= 1
+            symbol = '↘'
+        elif direction == 'SW':
+            x -= 1
+            y -= 1
+            symbol = '↙'
         coords.append((x, y))
+        
 
-    return coords
+        if x < 0 or x >= GRID_SIZE or y < 0 or y >= GRID_SIZE:
+            return False, coords
+
+        print("Plotting route: [", end="")
+        for j in range(10):
+            if j <= i * 10 // num_instructions:
+                print("*", end="")
+            else:
+                print(" ", end="")
+            time.sleep(0.1)
+       
+
+    print("Plotting route: [**********] 100%")
+
+    return True, coords
+
+def show_record(filename, coords):
+    print(f"Movement record for {filename}:")
+    for i, (x, y) in enumerate(coords):
+        if i == 0:
+            print(f"Starting position: ({x}, {y})")
+        else:
+            x_prev, y_prev = coords[i-1]
+            if x > x_prev:
+                print(f"Moved right to ({x}, {y})")
+            elif x < x_prev:
+                print(f"Moved left to ({x}, {y})")
+            elif y > y_prev:
+                print(f"Moved up to ({x}, {y})")
+            elif y < y_prev:
+                print(f"Moved down to ({x}, {y})")
 
 
 print('Initializing Route Plotting Program...')
 time.sleep(5)
+print("Welcome to my Route Plotting Program.")
 
-filename = input("Enter Route File Name: ")
-num_instructions, instructions = read_route_file(filename)
-coords = follow_instructions(num_instructions, instructions)
-
-print("Starting Route Plotting.............")
-
-for x, y in coords:
-    print(f"Moving to ({x}, {y})")
-
-print("Route Plotting Complete.")
-print("Shutting down Route Plotting Program....")
-time.sleep(5)
-
+previous_coords = []
 while True:
     filename = input("Enter the route instruction filename (or 'STOP' to exit): ")
     if filename == 'STOP':
@@ -53,29 +93,70 @@ while True:
         time.sleep(5)
         break
 
+    if re.match(r"^show record for (.+)$", filename):
+        filename = re.match(r"^show record for (.+)$", filename).group(1)
+        try:
+            num_instructions, instructions = read_route_file(filename)
+            success, coords = follow_instructions(num_instructions, instructions, previous_coords[-1][0] if previous_coords else 6, previous_coords[-1][1] if previous_coords else 6)
+            if success:
+                show_record(filename, coords)
+            else:
+                print("Error: The route is outside of the grid")
+        except Exception as e:
+            print(e)
+    else:
+        filename = filename
+        print("Starting Route Plotting for " + filename + ".............")
+        time.sleep(5)
+
+
     try:
         num_instructions, instructions = read_route_file(filename)
-        coords = follow_instructions(num_instructions, instructions)
+        x = previous_coords[-1][0] if previous_coords else 6
+        y = previous_coords[-1][1] if previous_coords else 6
+        success, coords = follow_instructions(num_instructions, instructions, x, y)
     except Exception as e:
         print(e)
         continue
+    
+    if success:
+        print("Calculating route...")
+        time.sleep(5)
+        grid = [[' ' for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
 
-    grid = [[' ' for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+        for x, y in coords:
+            symbol = 'X'
+            if (x, y) == coords[-1]:
+                symbol = 'O'
+            elif (x, y) != coords[0]:
+                x_prev, y_prev = coords[coords.index((x, y))-1]
+                if x_prev < x:
+                    symbol = '→'
+                elif x_prev > x:
+                    symbol = '←'
+                elif y_prev < y:
+                    symbol = '↑'
+                elif y_prev > y:
+                    symbol = '↓'
+            grid[y][x] = symbol
 
-    for x, y in coords:
-        if x < 0 or x >= GRID_SIZE or y < 0 or y >= GRID_SIZE:
-            print("Error: The route is outside of the grid")
-            break
-        grid[y][x] = 'X'
+        for row in grid:
+            print('|' + '|'.join(row) + '|')
+        print('-' * (GRID_SIZE * 2 + 1))
+        print('Route plotting complete.')
 
-    for row in grid:
-        print(' '.join(row))
+        if previous_coords:
+            print('Moved from', previous_coords[-1], 'to', coords[-1])
+        else:
+            print('Initial position:', coords[0])
+    else:
+        print("Error: The route is outside of the grid")
 
-    print('Route plotting complete.')
+    previous_coords = coords
     print()
 
-    # Display the grid showing the movement
-    for row in grid:
-        print('|' + '|'.join(row) + '|')
-    print('-' * (GRID_SIZE * 2 + 1))
+    previous_coords = coords
+
+   
+
 
